@@ -1,205 +1,223 @@
-ORG 100h
+ORG     100h
 
-SECTION .data
-    status_main_loop DB 1h
-    color DB 10010010b
-    pos_x DW 300d
-    pos_y DW 200d
-    dim_y DW 100d
-    dim_x DW 100d
-    auxCountLeft DW 0d
-    auxCountRight DW 0d
+section .data
+    status_main_loop db 1h
+    color            db 10010010b
+    global_pos_x     dw 300d
+    global_pos_y     dw 200d
+    local_pos_x      dw 0d
+    local_pos_y      dw 0d
+    dim_y            dw 100d
+    dim_x            dw 100d
+    movement_speed   dw 8h
+    auxCountLeft     dw 0d
+    auxCountRight    dw 0d
 
 
 
-SECTION .text
-    GLOBAL main
+section .text
+    global main
 
 main:
-    CALL video_mode_init
-    CALL main_loop
-
-INT 20h
+    call video_mode_init
+    call main_loop
+int 20h
 
 
 
 video_mode_init:
-    MOV  AH, 00H
-    MOV AL, 12h
-    INT 10h
-RET
+    mov ah, 00h
+    mov al, 12h
+    int 10h
+ret
+
+
 
 
 main_loop:
-    CMP BYTE[status_main_loop], 0h
-        JE return
-    CALL clean_display
+    cmp byte[status_main_loop], 0h
+        je return
+        
+    call clean_display
 
-    MOV WORD[color], 00010010b
-    MOV WORD[pos_x], 300d
-    MOV WORD[pos_y], 200d
-    MOV WORD[dim_y], 100d
-    CALL print_triangle
+    ;Update local position with global position
+    mov ax,                [global_pos_x]
+    mov word[local_pos_x], ax
+    mov ax,                [global_pos_y]
+    mov word[local_pos_y], ax
 
-    MOV WORD[color], 00010010b
-    MOV WORD[pos_x], 300d
-    MOV WORD[pos_y], 150d
-    MOV WORD[dim_y], 75d
-    CALL print_triangle
+    ;First triangle
+    mov  byte[color], 00000010b
+    mov  word[dim_y], 100d
+    call print_triangle
 
-    MOV WORD[color], 00010010b
-    MOV WORD[pos_x], 300d
-    MOV WORD[pos_y], 125d
-    MOV WORD[dim_y], 50d
-    CALL print_triangle
+    ;Second triangle
+    mov  byte[color],       00001010b
+    sub  word[local_pos_y], 50d
+    mov  word[dim_y],       75d
+    call print_triangle
 
-    MOV WORD[color], 00010110b
-    MOV WORD[pos_x], 280d
-    MOV WORD[pos_y], 300d
-    MOV WORD[dim_y], 75d
-    MOV WORD[dim_x], 40d
-    CALL print_quad
+    ;Third triangle
+    mov  byte[color],       00001110b
+    sub  word[local_pos_y], 25d
+    mov  word[dim_y],       50d
+    call print_triangle
 
-    CALL read_key
+    ;Rectangle
+    sub  word[local_pos_x], 20d
+    add  word[local_pos_y], 175d
+    mov  byte[color],       00010110b
+    mov  word[dim_y],       75d
+    mov  word[dim_x],       40d
+    call print_quad
 
-    JMP main_loop
-RET
+    call read_key
+
+    jmp main_loop
+ret
 
 
 return:
-RET
+ret
 
 
 clean_display:
-    MOV AH, 06h
-    MOV AL, 00h
-    MOV BH, 0h
-    MOV CX, 0000h
-    MOV DX, 184Fh
-    INT 10h
-RET
-
+    push es
+    mov ax, 0A000h
+    mov es, ax
+    xor di, di
+    xor ax, ax
+    mov ecx, 153600 
+    rep stosw
+    pop es
+    ret
 
 
 
 print_triangle:
-    MOV AH, 0CH
-    MOV AL, BYTE[color]
-    MOV BH, 0h
+    mov ah, 0CH
+    mov al, [color]
+    mov bh, 0h
 
-    MOV DI, 0
-    MOV DX, WORD[pos_y]   ;FILA
-    CALL loop_row
+    mov  di, 0
+    mov  dx, [local_pos_y] ;FILA
+    call loop_row
 
-RET
+ret
 
 loop_row:
-    CMP DI, WORD[dim_y]
-        JE return
+    cmp di, [dim_y]
+        je return
     
 
-    MOV CX, WORD[pos_x]   ;COLUMNA
-    INT 10h
+    mov cx, [local_pos_x] ;COLUMNA
+    int 10h
 
-    MOV WORD[auxCountLeft], CX
-    MOV WORD[auxCountRight], CX
+    mov [auxCountLeft],  cx
+    mov [auxCountRight], cx
 
-    MOV SI, 0
-    CALL loop_column
+    mov  si, 0
+    call loop_column
 
-    INC DI
-    ADD DX, 1d
-JMP loop_row
+    inc di
+    add dx, 1d
+jmp loop_row
 
 loop_column:
-    CMP SI, DI
-        JAE return
+    cmp si, di
+        jae return
 
 
-    MOV CX, WORD[auxCountRight]
-    INT 10h
+    mov cx, [auxCountRight]
+    int 10h
 
-    MOV CX, WORD[auxCountLeft]
-    INT 10h
+    mov cx, [auxCountLeft]
+    int 10h
 
-    INC WORD[auxCountRight]
-    DEC WORD[auxCountLeft]
-    INC SI
+    inc word[auxCountRight]
+    DEC word[auxCountLeft]
+    inc si
 
-JMP loop_column
+jmp loop_column
 
 
 
 
 
 print_quad:
-    MOV AH, 0CH
-    MOV AL, BYTE[color]
-    MOV BH, 0h
+    mov ah, 0CH
+    mov al, [color]
+    mov bh, 0h
 
-    MOV DI, 0
-    MOV DX, WORD[pos_y]   ;FILA
-    CALL quad_loop_row
+    mov  di, 0
+    mov  dx, [local_pos_y] ;FILA
+    call quad_loop_row
 
-RET
+ret
 
 quad_loop_row:
-    CMP DI, WORD[dim_y]
-        JE return
+    cmp di, [dim_y]
+        je return
     
-    MOV SI, 0
-    MOV CX, WORD[pos_x]   ;COLUMNA
-    CALL quad_loop_column
+    mov  si, 0
+    mov  cx, [local_pos_x] ;COLUMNA
+    call quad_loop_column
 
-    INC DI
-    ADD DX, 1d
-JMP quad_loop_row
+    inc di
+    add dx, 1d
+jmp quad_loop_row
 
 quad_loop_column:
-    CMP SI, WORD[dim_x]
-        JE return
+    cmp si, [dim_x]
+        je return
 
-    INT 10h
+    int 10h
 
-    INC SI
-    ADD CX, 1d
-JMP quad_loop_column
+    inc si
+    add cx, 1d
+jmp quad_loop_column
 
 
 
 
 
 read_key:
-    MOV AH, 00h
-    INT 16h
-    CMP AL, 'w'
-        JE move_up
-    CMP AL, 's'
-        JE move_down
-    CMP AL, 'a'
-        JE move_left
-    CMP AL, 'd'
-        JE move_rigth
-    CMP AL, 1Bh ;ESC
-        JE end_main_loop
-RET
+    mov ah, 00h
+    int 16h
+
+    cmp al, 'w'
+        je move_up
+    cmp al, 's'
+        je move_down
+    cmp al, 'a'
+        je move_left
+    cmp al, 'd'
+        je move_rigth
+    cmp al, 1Bh ;ESC
+        je end_main_loop
+ret
+
 
 end_main_loop:
-    mov BYTE[status_main_loop], 0
-RET
+    mov byte[status_main_loop], 0
+ret
 
 move_up:
-    SUB WORD[pos_y], 4h
-RET
+    mov ax,             [movement_speed]
+    sub [global_pos_y], ax
+ret
 
 move_down:
-    ADD WORD[pos_y], 4h
-RET
+    mov ax,             [movement_speed]
+    add [global_pos_y], ax
+ret
 
 move_left:
-    SUB WORD[pos_x], 4h
-RET
+    mov ax,             [movement_speed]
+    sub [global_pos_x], ax
+ret
 
 move_rigth:
-    ADD WORD[pos_x], 4h
-RET
+    mov ax,             [movement_speed]
+    add [global_pos_x], ax
+ret
